@@ -1,4 +1,4 @@
-import User from "../model/user.model.js"
+import User from "../model/User.model.js"
 import crypto from "crypto"
 import { transporter } from "../utils/mail.js"
 import bcrypt from "bcryptjs";

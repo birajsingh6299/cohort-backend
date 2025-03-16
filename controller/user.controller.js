@@ -1,7 +1,6 @@
-import { log } from "console";
 import User from "../model/user.model.js"
 import crypto from "crypto"
-import nodemailer from "nodemailer"
+import { transporter } from "../utils/mail.js"
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken"
 
@@ -43,15 +42,6 @@ const registerUser = async (req, res) => {
         await user.save()
 
         //send mail
-        const transporter = nodemailer.createTransport({
-            host: process.env.MAIL_HOST,
-            port: process.env.MAIL_PORT,
-            secure: false, // true for port 465, false for other ports
-            auth: {
-                user: process.env.MAIL_USERNAME,
-                pass: process.env.MAIL_PASSWORD,
-            },
-        });
 
         const mailOption = {
         from: process.env.SENDER_EMAIL, // sender address
@@ -143,7 +133,7 @@ const loginUser = async (req, res) => {
         console.log(isMatch);
         const token = jwt.sign(
             { id: user._id, role: user.role }, 
-            "shhhhh",
+            process.env.JWT_SECRET,
             {
                 expiresIn: "24h",
             }
@@ -177,4 +167,86 @@ const loginUser = async (req, res) => {
 
 };
 
-export { registerUser, verifyUser, loginUser };
+const getMe = async (req, res) => {
+    try {
+        const {id} = req.user;
+
+        const user = await User.findById(id).select(["-password", "-createdAt", "-updatedAt", "-verificationToken"]);
+
+        if (!user) {
+            return res.status(400).json({
+                success: false,
+                message: "User not found",
+            });
+        }
+        
+        res.status(200).json({
+            success: true,
+            user,
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+        });
+    } 
+}
+
+const logoutUser = async (req, res) => {
+    try {
+        res.cookie("token", "", {});
+        return res.status(200).json({
+            success: true,
+            message: "User logged out successfully"
+        })
+    } catch (error) {
+        console.log(error);
+        
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error"
+        })
+    }
+};
+
+const forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({
+                success:false,
+                message:"Please provide an email"
+            })
+        }
+        const user = await User.findOne({email});
+        const token = crypto.randomBytes(32).toString("hex");
+        
+        user.resetPasswordToken = token;
+        user.resetPasswordExpires = Date.now() + 10 * 60 * 1000;
+        user.save();
+
+        //send mail
+
+        const mailOption = {
+            from: process.env.SENDER_EMAIL, // sender address
+            to: user.email, // list of receivers
+            subject: "Forgot Password Email", // Subject line
+            text: `Please click on the following link to reset your password:
+            ${process.env.BASE_URL}:${process.env.PORT}/api/v1/users/password_reset/${token}`, // plain text body
+            
+            }
+    
+            // const info = await transporter.sendMail({mailOption});
+        
+    } catch (error) {
+        console.log("User");
+        
+    }
+};
+
+const resetPassword = async (req, res) => {
+
+};
+
+export { registerUser, verifyUser, loginUser, getMe, logoutUser, forgotPassword, resetPassword };

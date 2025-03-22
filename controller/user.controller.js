@@ -3,6 +3,7 @@ import crypto from "crypto"
 import { transporter } from "../utils/mail.js"
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken"
+import { log } from "console";
 
 const registerUser = async (req, res) => {
     const {name, email, password} = req.body
@@ -238,7 +239,10 @@ const forgotPassword = async (req, res) => {
             }
     
             // const info = await transporter.sendMail({mailOption});
-        
+            return res.status(200).json({
+                success:true,
+                message:"Password reset link has been sent to the email"
+            })
     } catch (error) {
         console.log("User");
         
@@ -246,7 +250,64 @@ const forgotPassword = async (req, res) => {
 };
 
 const resetPassword = async (req, res) => {
+    try {
+        const {token} = req.params;
+        const {password1, password2}= req.body;
+        const now = Date.now();
 
+        console.log(token);
+
+        if (!token) {
+            return res.status(400).json({
+                success:false,
+                message:"Invalid token"
+            })
+        }
+
+        if (password1!==password2) {
+            return res.status(400).json({
+                success:false,
+                message:"Passwords don't match"
+            })
+        
+        }
+        const user = await User.findOne({
+            resetPasswordToken: token
+        })
+
+        if (!user) {
+            
+            return res.status(400).json({
+                success:false,
+                message:"Invalid token"
+            })
+        }
+
+        if (now > user.resetPasswordExpires) {
+            return res.status(400).json({
+                success:false,
+                message:"URL has expired"
+            })
+        }
+
+        user.password = password1;
+        user.resetPasswordExpires = undefined;
+        user.resetPasswordToken = undefined;
+
+        await user.save();
+
+        return res.status(200).json({
+            success:true,
+            message:"Password reset successful"
+        })
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({
+            success:false,
+            message:"Internal Server Error"
+        })
+        
+    }
 };
 
 export { registerUser, verifyUser, loginUser, getMe, logoutUser, forgotPassword, resetPassword };

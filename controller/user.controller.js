@@ -3,7 +3,6 @@ import crypto from "crypto"
 import { transporter } from "../utils/mail.js"
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken"
-import { log } from "console";
 
 const registerUser = async (req, res) => {
     const {name, email, password} = req.body
